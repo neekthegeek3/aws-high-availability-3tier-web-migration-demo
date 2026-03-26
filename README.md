@@ -97,7 +97,7 @@ To ensure the application tier is **stateless** and **self-healing**, I develope
 ### 📜 User Data Script Highlights:
 - **Automated Stack:** Installs Apache, PHP, and PostgreSQL drivers on boot.
 - **Self-Healing Schema:** Logic includes `CREATE TABLE IF NOT EXISTS`,
-- 
+  
 ![Launch Template](screenshots/alb-asg/ha-3tier-launch-template-created.png)
 
 ---
