@@ -108,14 +108,14 @@ To ensure the application tier is **stateless** and **self-healing**, I develope
 - Internet-facing Application Load Balancer with target group
 
 ![ALB](screenshots/alb-asg/ha-3tier-alb-creation.png)
-![ASG](screenshots/alb-asg/ha-3tier-asg-instances.png)
-![Healthy Targets](screenshots/alb-asg/ha-3tier-target-group-healthy.png)
+![ASG](screenshots/alb-asg/ha-3tier-asg.png)
+![Healthy Targets](screenshots/alb-asg/ha-3tier-tg.png)
 
 ---
 
 ## Final Application
 Live demo accessible via the ALB DNS name.
-![Live Demo](screenshots/alb/ha-3tier-web-app-test.png)
+![Live Demo](screenshots/alb-asg/ha-3tier-web-app-test.png)
 
 **Key Learnings:**
 - Proper VPC design with public/private separation
