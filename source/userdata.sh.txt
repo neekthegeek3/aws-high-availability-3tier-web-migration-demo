@@ -1,0 +1,107 @@
+#!/bin/bash
+# ------------------------------------------------------------------
+# ha-3tier-bootstrap.sh
+# Purpose: Automated Provisioning for High-Availability Web Tier
+# ------------------------------------------------------------------
+
+# Update all system packages
+yum update -y
+
+# Ensure PHP and PostgreSQL drivers are the latest versions
+# Note: If using Amazon Linux 2023, these are in the default repos.
+yum install -y httpd php php-pgsql php-pdo php-mbstring postgresql15
+
+# Start Apache and ensure it runs on boot
+systemctl start httpd
+systemctl enable httpd
+
+# Navigate to the web root
+cd /var/www/html
+
+# Create the application file dynamically
+# NOTE: Replace the host endpoint with your actual Aurora Cluster Endpoint
+cat <<'EOF' > index.php
+<?php
+// Database configuration
+$host = "ha-3tier-testbook-db.cluster-xxxxxx.us-east-1.rds.amazonaws.com";
+$dbname = "testbook";
+$user = "admin";
+$pass = "REDACTED";
+
+try {
+    $dsn = "pgsql:host=$host;dbname=$dbname";
+    $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+
+    // Self-healing: Ensure the table exists on first boot/connection
+    $pdo->exec("CREATE TABLE IF NOT EXISTS guestbook (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    // Process form submission
+    if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($_POST['name'])) {
+        $stmt = $pdo->prepare("INSERT INTO guestbook (name, message) VALUES (?, ?)");
+        $stmt->execute([$_POST['name'], $_POST['message']]);
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+    $entries = $pdo->query("SELECT * FROM guestbook ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<div style='color:red; border:1px solid red; padding:10px;'>";
+    echo "<strong>Database Connection Error:</strong> " . htmlspecialchars($e->getMessage());
+    echo "</div>";
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guestbook - HA 3-Tier Demo (PostgreSQL)</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; }
+        form { margin-bottom: 30px; }
+        input, textarea { width: 100%; padding: 10px; margin: 8px 0; }
+        button { padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        .message { border-bottom: 1px solid #ddd; padding: 10px 0; }
+        .message strong { color: #333; }
+        .timestamp { font-size: 0.8em; color: #777; }
+    </style>
+</head>
+<body>
+    <h1>Guestbook - Highly Available 3-Tier App Demo (PostgreSQL)</h1>
+
+    <form method="POST">
+        <input type="text" name="name" placeholder="Your Name" required>
+        <textarea name="message" placeholder="Your Message" rows="4" required></textarea>
+        <button type="submit">Post Message</button>
+    </form>
+
+    <h2>Messages</h2>
+    <?php if (empty($messages)): ?>
+        <p>No messages yet. Be the first!</p>
+    <?php else: ?>
+        <?php foreach ($messages as $msg): ?>
+            <div class="message">
+                <strong><?= htmlspecialchars($msg['name']) ?></strong><br>
+                <?= nl2br(htmlspecialchars($msg['message'])) ?><br>
+                <span class="timestamp"><?= $msg['created_at'] ?></span>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</body>
+</html>
+EOF
+
+# Set proper permissions so Apache can serve the file
+chown apache:apache index.php
+chmod 644 index.php
+
+# Create a health check file for the ALB
+echo "OK" > healthcheck.txt

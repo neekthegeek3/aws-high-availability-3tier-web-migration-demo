@@ -1,0 +1,12 @@
+-- Manual Setup Script for Aurora PostgreSQL
+-- Database: testbook
+
+CREATE TABLE IF NOT EXISTS guestbook (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index for performance optimization on high-traffic reads
+CREATE INDEX idx_created_at ON guestbook(created_at DESC);
